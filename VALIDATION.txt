@@ -144,6 +144,19 @@ longest selected label and open dropdown at default, compact and maximized
 sizes. Rendered selected-field and dropdown screenshots were also inspected.
 Earlier packaged validation counts above are historical; each GitHub release
 includes the reports from testing its own packaged executable.
+
+Dropdown spacing regression (2026-10-11): Reproduced a 34.28-DIP blank area
+below the final step option with the previous whole-item scrolling behavior.
+The popup now scrolls by pixels under its existing height limit. New checks
+scroll every XY/Z step and feed menu to the bottom in both unit modes and
+verify the final option is fully visible, selectable and at the viewport edge.
+All measured trailing gaps were zero at default, compact and maximized sizes.
+Rendered bottom-edge screenshots for both step menus in both unit modes were
+visually compared with the compact feed menus. The Release build completed
+with no warnings or errors; 511 simulator UI assertions, 31 shutdown assertions
+and 51 update-window assertions passed. Presets, selected fraction annotations,
+custom entries and exact unit conversions are unchanged.
+
 Units now sits between the mode indicator and connection badge with compact
 spacing while preserving fixed button positions across status changes.
 

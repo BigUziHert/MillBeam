@@ -81,7 +81,10 @@
       <ContentPresenter x:Name="SelectedContent" Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}" IsHitTestVisible="False" Margin="13,5,34,5" VerticalAlignment="Center"/>
       <TextBox x:Name="PART_EditableTextBox" Visibility="Collapsed" Background="Transparent" BorderThickness="0" Margin="1,1,30,1" Padding="11,3" MinHeight="0" IsReadOnly="{TemplateBinding IsReadOnly}" Foreground="{StaticResource Ink}"/>
       <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
-       <Border Background="#FCFDFF" BorderBrush="#C4D9F3" BorderThickness="1" CornerRadius="7" Padding="0,3" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="250"><ScrollViewer CanContentScroll="True"><ItemsPresenter/></ScrollViewer></Border>
+       <!-- Pixel scrolling keeps the last row against the viewport edge when
+            the height limit clips only part of a row. Whole-item scrolling
+            would leave an empty row-sized area below the final preset. -->
+       <Border Background="#FCFDFF" BorderBrush="#C4D9F3" BorderThickness="1" CornerRadius="7" Padding="0,3" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="250"><ScrollViewer CanContentScroll="False"><ItemsPresenter/></ScrollViewer></Border>
       </Popup>
      </Grid>
      <ControlTemplate.Triggers>

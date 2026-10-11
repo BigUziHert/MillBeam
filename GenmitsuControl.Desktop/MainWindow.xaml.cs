@@ -561,6 +561,46 @@ public partial class MainWindow : Window
                     throw new InvalidOperationException($"Jog input caption is cramped in {state}: {caption.Name} {caption.RenderSize}.");
             AssertCommandTextFits(state);
             AssertStepPresetTextFits(state);
+            AssertJogPresetMenusFit(state);
+        }
+        void AssertJogPresetMenusFit(string state)
+        {
+            foreach (var picker in UnitInputs.Where(picker => picker.IsEnabled))
+            {
+                string previous = picker.Text;
+                var saved = _unitValues[picker];
+                try
+                {
+                    picker.SelectedIndex = picker.Items.Count - 1;
+                    picker.IsDropDownOpen = true;
+                    var popup = (System.Windows.Controls.Primitives.Popup)picker.Template.FindName("PART_Popup", picker);
+                    var menu = (Border)popup.Child;
+                    var scroll = (ScrollViewer)menu.Child;
+                    menu.UpdateLayout();
+                    scroll.ScrollToBottom();
+                    menu.UpdateLayout();
+                    var viewport = (ScrollContentPresenter)scroll.Template.FindName("PART_ScrollContentPresenter", scroll);
+                    var lastItem = (ComboBoxItem)picker.ItemContainerGenerator.ContainerFromIndex(picker.Items.Count - 1);
+                    Rect itemBounds = lastItem.TransformToAncestor(menu).TransformBounds(new Rect(lastItem.RenderSize));
+                    Rect viewportBounds = viewport.TransformToAncestor(menu).TransformBounds(new Rect(viewport.RenderSize));
+                    double bottomGap = viewportBounds.Bottom - itemBounds.Bottom;
+                    if (state is "disconnected default window" or "inch controls default window")
+                        Capture($"MillBeam-{picker.Name}-{UnitSymbol}-menu-bottom.png", menu);
+                    Assert(itemBounds.Top >= viewportBounds.Top - .75 && bottomGap >= -.75 && bottomGap <= 1,
+                        $"{state}: {picker.Name} {UnitSymbol} final preset is fully visible with no blank trailing area (gap {bottomGap:0.##} DIP)");
+                    Assert(picker.Text == ((UnitPreset)picker.Items[^1]).DisplayText
+                        && ReadMillimeters(picker, "last preset", picker == DistancePicker || picker == ZDistancePicker ? 100 : 10000)
+                            == ((UnitPreset)picker.Items[^1]).Millimeters,
+                        $"{state}: {picker.Name} last preset remains selectable with its exact physical value");
+                }
+                finally
+                {
+                    picker.IsDropDownOpen = false;
+                    picker.SelectedIndex = -1;
+                    picker.Text = previous;
+                    _unitValues[picker] = saved;
+                }
+            }
         }
         void AssertStepPresetTextFits(string state)
         {
