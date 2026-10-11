@@ -5,6 +5,61 @@ namespace GenmitsuControl.Desktop;
 
 public partial class MainWindow
 {
+    private void RunStartupPresetSmokeTests(Action<bool, string> assert, Action<Button> click, Action<string> capture)
+    {
+        var inputs = UnitInputs;
+        int?[] indices = { 0, 2, 0, 2 };
+        double[] metric = { 1, 500, 1, 500 }, inches = { .03125, 20, .03125, 20 };
+        double Read(int index) => ReadMillimeters(inputs[index], "startup input", index % 2 == 0 ? 100 : 10000);
+        void CheckDefaults(bool inchMode, string phase)
+        {
+            assert(_displayInches == inchMode, phase + ": expected display units");
+            for (int i = 0; i < inputs.Length; i++)
+            {
+                string expectedText = inchMode && i % 2 == 0
+                    ? .03125.ToString("0.########", CultureInfo.CurrentCulture) + "″ (1/32″)"
+                    : (inchMode ? inches[i] : metric[i]).ToString("0.########", CultureInfo.CurrentCulture);
+                assert(inputs[i].PresetIndex == indices[i] && inputs[i].SelectedIndex == indices[i]
+                    && inputs[i].Text == expectedText
+                    && Math.Abs(Read(i) - (inchMode ? inches[i] * 25.4 : metric[i])) < 1e-12,
+                    $"{phase}: {inputs[i].Name} shows its paired default and uses the matching physical value");
+            }
+        }
+
+        string logBefore = _log.ToString();
+        CheckDefaults(false, "Untouched fresh launch");
+        capture("MillBeam-startup-mm.png");
+        for (int roundtrip = 1; roundtrip <= 2; roundtrip++)
+        {
+            click(UnitsButton);
+            CheckDefaults(true, $"Startup toggle {roundtrip} to inches without dropdown selection");
+            if (roundtrip == 1) capture("MillBeam-startup-inches.png");
+            click(UnitsButton);
+            CheckDefaults(false, $"Startup toggle {roundtrip} back to millimeters without dropdown selection");
+        }
+
+        // Retyping the unchanged startup number must opt out of preset pairing.
+        var editor = (TextBox)FeedPicker.Template.FindName("PART_EditableTextBox", FeedPicker);
+        editor.Focus();
+        editor.SelectAll();
+        editor.SelectedText = "500";
+        assert(FeedPicker.PresetIndex is null && FeedPicker.SelectedIndex == -1,
+            "Retyping startup XY feed 500 marks it as custom even though the number is unchanged");
+        click(UnitsButton);
+        assert(FeedPicker.Text == (500d / 25.4).ToString("0.########", CultureInfo.CurrentCulture)
+            && Read(1) == 500 && FeedPicker.PresetIndex is null
+            && Read(3) == 20 * 25.4 && ZFeedPicker.Text == "20" && ZFeedPicker.PresetIndex == 2
+            && Read(0) == .03125 * 25.4 && Read(2) == .03125 * 25.4,
+            "Typed startup XY feed converts exactly while untouched Z feed and both steps retain paired defaults");
+        click(UnitsButton);
+        assert(FeedPicker.Text == "500" && Read(1) == 500 && FeedPicker.PresetIndex is null,
+            "Typed startup feed returns to its exact custom metric value");
+        assert(_controller is null && ConnectionBadge.Text == "DISCONNECTED" && _log.ToString() == logBefore,
+            "Startup unit toggles remain disconnected and issue no controller commands");
+        FeedPicker.SelectedIndex = 2;
+        CheckDefaults(false, "Reselecting the startup feed restores all four default presets");
+    }
+
     private async Task RunJogPresetSmokeTestsAsync(Action<bool, string> assert, Action<Button> click,
         Func<Task> waitReady, Func<Func<bool>, string, Task> waitUntil)
     {

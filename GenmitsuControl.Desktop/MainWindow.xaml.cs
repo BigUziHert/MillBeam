@@ -43,7 +43,8 @@ public partial class MainWindow : Window
         InitializeComponent();
         foreach (var picker in UnitInputs)
             picker.CustomInputChanged += (_, _) => _unitValues.Remove(picker);
-        UpdateUnitInputs(new[] { 1d, 500d, 1d, 500d });
+        // Built-in defaults are selected presets; only user edits are custom values.
+        UpdateUnitInputs(new[] { 1d, 500d, 1d, 500d }, new int?[] { 0, 2, 0, 2 });
         RefreshPorts();
         AppendLog("Ready. Connect to a GRBL 1.1 controller, or select Simulator to explore.");
         RenderState();
@@ -703,6 +704,11 @@ public partial class MainWindow : Window
         Assert(SendMessage(handle, 0x007F, (IntPtr)1, IntPtr.Zero) != IntPtr.Zero && SendMessage(handle, 0x007F, IntPtr.Zero, IntPtr.Zero) != IntPtr.Zero,
             "Windows receives both large and small MillBeam window icons");
         Assert(ModePanel.Visibility == Visibility.Collapsed && ConnectionBadge.Text == "DISCONNECTED", "Disconnected header has one connection indicator");
+        UpdateLayout();
+        stableBounds = stationaryControls.Select(Bounds).ToArray();
+        // Run before layout/menu checks select any dropdown item: this is the
+        // untouched launch -> units toggle sequence, including template startup.
+        RunStartupPresetSmokeTests(Assert, Click, name => Capture(name));
         AssertFits("disconnected default window");
         stableBounds = stationaryControls.Select(Bounds).ToArray();
         LayoutUpdated += watchLayout;
