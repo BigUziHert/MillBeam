@@ -146,7 +146,6 @@ public partial class MainWindow : Window
     private async void Home_Click(object sender, RoutedEventArgs e) => await RunUiAsync(() => Controller.HomeAsync());
     private async void Work_Click(object sender, RoutedEventArgs e) => await RunUiAsync(() =>
         Controller.MoveToWorkZeroAsync(ReadMillimeters(FeedPicker, "Work return XY feed", 10000)));
-    private async void ReadState_Click(object sender, RoutedEventArgs e) => await RunUiAsync(() => Controller.RefreshAsync());
 
     private async void Jog_Click(object sender, RoutedEventArgs e) => await RunUiAsync(async () =>
     {
@@ -344,7 +343,6 @@ public partial class MainWindow : Window
         JogPad.IsEnabled = ZJogPad.IsEnabled = canMutate;
         HomeButton.IsEnabled = connected && !busy && !paused && !pausing && (s!.IsIdle || s.State.StartsWith("Alarm", StringComparison.OrdinalIgnoreCase));
         WorkButton.IsEnabled = canMutate;
-        ReadStateButton.IsEnabled = connected && !busy;
         CancelJogButton.IsEnabled = StopButton.IsEnabled = connected;
         PauseJogButton.IsEnabled = connected && !_pauseResumeInProgress && (s!.CanPauseJog || s.CanResumeJog);
         PauseJogButton.Content = pausing ? "Pausing…" : paused ? "Resume" : "Pause";
@@ -435,7 +433,7 @@ public partial class MainWindow : Window
         var checks = new List<string>();
         var stationaryControls = new FrameworkElement[] { UnitsButton, ConnectionBadgeBorder, PortPicker, ConnectButton,
             MillingButton, LaserButton, JogPad, ZJogPad, DistancePicker, ZDistancePicker, FeedPicker, ZFeedPicker,
-            PauseJogButton, WorkButton, HomeButton, SetDatumButton, ClearDatumButton, ConsoleCard, ReadStateButton, CommandInput, StopButton, UpdatesButton };
+            PauseJogButton, WorkButton, HomeButton, SetDatumButton, ClearDatumButton, ConsoleCard, CommandInput, StopButton, UpdatesButton };
         Rect[]? stableBounds = null;
         bool resizingForTest = false;
         string currentAction = "initial layout";
@@ -527,7 +525,7 @@ public partial class MainWindow : Window
             var controls = new FrameworkElement[] { BrandLogo, ConnectionBadgeBorder, PortPicker, RefreshPortsButton,
                 ConnectButton, DisconnectButton, MillingButton, LaserButton, JogPad, ZJogPad, DistancePicker,
                 FeedPicker, ZDistancePicker, ZFeedPicker, UnitsButton, PauseJogButton, CancelJogButton, SetDatumButton, ClearDatumButton, HomeButton,
-                WorkButton, ConsoleOutput, CommandInput, SendButton, ReadStateButton, StopButton, UpdatesButton };
+                WorkButton, ConsoleOutput, CommandInput, SendButton, StopButton, UpdatesButton };
             foreach (var control in controls)
             {
                 var bounds = Bounds(control);
@@ -623,9 +621,6 @@ public partial class MainWindow : Window
         Click(SendButton); await WaitReady();
         Assert(!Controller.Snapshot.ModeVerified && !ModeText.Text.EndsWith("· Verified") && SettingsText.Text.Contains("999"), "Mixed profile displays actual readback without a Verified label");
         Assert(ConsoleOutput.Text.Contains("ATTENTION: Controller settings are unverified"), "Mixed controller profile attention is recorded in the console");
-        Assert(ReadStateButton.IsVisible && ReadStateButton.IsEnabled && Bounds(ReadStateButton).Top >= Bounds(ConsoleCard).Top,
-            "Read Controller remains available in the fixed console toolbar for recovery");
-        Click(ReadStateButton); await WaitReady();
         Click(LaserButton); await WaitReady();
         AssertFits("connected default window");
         Capture("MillBeam-preview.png");

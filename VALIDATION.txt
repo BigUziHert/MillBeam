@@ -97,8 +97,8 @@ The notification banner and its layout row have been removed entirely.
 Home, Work, mode switches, datum changes, readback, errors and jogging no longer
 insert anything between the mode buttons and the machine controls. Progress
 and error details remain in the console and existing status indicators.
-Read Controller is permanently located in the console toolbar. Header units
-and status controls use reserved widths so status text cannot move the buttons.
+Header units and status controls use reserved widths so status text cannot
+move the buttons.
 The smoke test watches layout continuously across button actions, including
 asynchronous intermediate states, and compares control bounds at fixed window
 sizes. Intentional window resizing is tested separately. Rejected commands and
