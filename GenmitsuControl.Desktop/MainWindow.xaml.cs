@@ -29,6 +29,7 @@ public partial class MainWindow : Window
     private bool _displayInches;
     private readonly Dictionary<ComboBox, (double Millimeters, string DisplayText)> _unitValues = new();
     private readonly Dictionary<ComboBox, Dictionary<string, double>> _unitPresets = new();
+    private sealed record UnitPreset(string InputText, string DisplayText, double Millimeters);
     private bool _closing;
     private bool _allowClose;
     private bool _usingSimulator;
@@ -185,16 +186,35 @@ public partial class MainWindow : Window
             // Distance and feed menus have useful native increments for each display unit.
             // Keep all stored values in millimeters; changing menus does not alter
             // the physical distance already entered in the editable field.
-            double[] presets = i % 2 == 1
+            bool isFeed = i % 2 == 1;
+            double[] presets = isFeed
                 ? (_displayInches ? new[] { 5d, 12d, 20d, 40d, 60d, 78d }.Select(inches => inches * 25.4).ToArray()
-                                  : new[] { 100d, 300d, 500d, 1000d, 1500d, 2000d })
+                                  : new[] { 125d, 300d, 500d, 1000d, 1500d, 2000d })
                 : _displayInches
-                    ? (i == 2 ? new[] { .03125, .0625, .125, .25, .5, 1 }
-                              : new[] { .03125, .0625, .125, .25, .5, 1, 2 }).Select(inches => inches * 25.4).ToArray()
-                    : i == 2 ? new[] { .1, .25, 1, 5, 10, 25 } : new[] { .1, 1, 5, 10, 25, 50 };
-            _unitPresets[picker] = presets.ToDictionary(FormatInput, value => value);
-            picker.ItemsSource = _unitPresets[picker].Keys.ToArray();
-            string text = FormatInput(values[i]);
+                    ? new[] { .03125, .0625, .125, .25, .5, 1, 2 }.Select(inches => inches * 25.4).ToArray()
+                    : new[] { 1d, 2d, 3d, 6d, 13d, 25d, 50d };
+            var items = presets.Select(value =>
+            {
+                string input = FormatInput(value);
+                string label = input;
+                if (_displayInches && !isFeed)
+                {
+                    string? fraction = (value / 25.4) switch
+                    {
+                        .03125 => "1/32", .0625 => "1/16", .125 => "1/8", .25 => "1/4", .5 => "1/2", _ => null
+                    };
+                    label = fraction is null ? $"{input}″" : $"{input}″ ({fraction}″)";
+                }
+                return new UnitPreset(input, label, value);
+            }).ToArray();
+            _unitPresets[picker] = items.ToDictionary(item => item.DisplayText, item => item.Millimeters);
+            // Preserve the annotation after selection, while custom numeric text
+            // still uses the ordinary number parser. Only exact preset values
+            // receive a label after conversion; near-equivalent values never snap.
+            picker.DisplayMemberPath = nameof(UnitPreset.DisplayText);
+            TextSearch.SetTextPath(picker, nameof(UnitPreset.DisplayText));
+            picker.ItemsSource = items;
+            string text = items.FirstOrDefault(item => item.Millimeters == values[i])?.DisplayText ?? FormatInput(values[i]);
             picker.Text = text;
             _unitValues[picker] = (values[i], text);
             string axis = i < 2 ? "XY" : "Z";
@@ -540,13 +560,65 @@ public partial class MainWindow : Window
                 if (caption.ActualHeight > 24 || caption.ActualWidth < 110)
                     throw new InvalidOperationException($"Jog input caption is cramped in {state}: {caption.Name} {caption.RenderSize}.");
             AssertCommandTextFits(state);
+            AssertStepPresetTextFits(state);
         }
-        void Capture(string name)
+        void AssertStepPresetTextFits(string state)
+        {
+            if (!_displayInches) return;
+            foreach (var picker in new[] { DistancePicker, ZDistancePicker })
+            {
+                string previous = picker.Text;
+                var saved = _unitValues[picker];
+                try
+                {
+                    // Exercise the longest annotated choice through real selection.
+                    picker.SelectedIndex = 0;
+                    UpdateLayout();
+                    var input = (TextBox)picker.Template.FindName("PART_EditableTextBox", picker);
+                    input.CaretIndex = 0;
+                    input.ScrollToHome();
+                    UpdateLayout();
+                    var host = (ScrollViewer)input.Template.FindName("PART_ContentHost", input);
+                    var presenter = (ScrollContentPresenter)host.Template.FindName("PART_ScrollContentPresenter", host);
+                    Rect viewport = presenter.TransformToAncestor(input).TransformBounds(new Rect(presenter.RenderSize));
+                    Rect first = input.GetRectFromCharacterIndex(0);
+                    Rect last = input.GetRectFromCharacterIndex(input.Text.Length - 1, true);
+                    Assert(!first.IsEmpty && !last.IsEmpty && first.Left >= viewport.Left - .75
+                        && last.Right <= viewport.Right + .75 && first.Top >= viewport.Top - .75 && last.Bottom <= viewport.Bottom + .75,
+                        $"{state}: {picker.Name} selected decimal and fraction fit their editable viewport (text {first} to {last}; viewport {viewport})");
+                    picker.IsDropDownOpen = true;
+                    var popup = (System.Windows.Controls.Primitives.Popup)picker.Template.FindName("PART_Popup", picker);
+                    var menu = (FrameworkElement)popup.Child;
+                    menu.UpdateLayout();
+                    var item = (ComboBoxItem)picker.ItemContainerGenerator.ContainerFromIndex(0);
+                    var border = (Border)item.Template.FindName("ItemBorder", item);
+                    var content = (ContentPresenter)border.Child;
+                    string label = ((UnitPreset)picker.Items[0]).DisplayText;
+                    var text = new FormattedText(label, CultureInfo.CurrentCulture, picker.FlowDirection,
+                        new Typeface(picker.FontFamily, picker.FontStyle, picker.FontWeight, picker.FontStretch),
+                        picker.FontSize, picker.Foreground, VisualTreeHelper.GetDpi(picker).PixelsPerDip);
+                    Assert(content.ActualWidth >= text.WidthIncludingTrailingWhitespace - 1
+                        && content.ActualHeight >= text.Height - 1,
+                        $"{state}: {picker.Name} dropdown fits the complete decimal and fraction label");
+                    if (state == "inch controls default window") Capture($"MillBeam-{picker.Name}-presets.png", menu);
+                    picker.IsDropDownOpen = false;
+                    if (state == "inch controls default window") Capture($"MillBeam-{picker.Name}-selected.png");
+                }
+                finally
+                {
+                    picker.IsDropDownOpen = false;
+                    picker.SelectedIndex = -1;
+                    picker.Text = previous;
+                    _unitValues[picker] = saved;
+                }
+            }
+        }
+        void Capture(string name, FrameworkElement? element = null)
         {
             FitLayout();
             UpdateLayout();
-            var visual = (Visual)Content;
-            var size = ((FrameworkElement)Content).RenderSize;
+            var visual = element ?? (FrameworkElement)Content;
+            var size = visual.RenderSize;
             var bitmap = new RenderTargetBitmap((int)Math.Ceiling(size.Width), (int)Math.Ceiling(size.Height), 96, 96, PixelFormats.Pbgra32);
             bitmap.Render(visual);
             var png = new PngBitmapEncoder(); png.Frames.Add(BitmapFrame.Create(bitmap));
@@ -661,27 +733,38 @@ public partial class MainWindow : Window
         DistancePicker.Text = "12.345678"; FeedPicker.Text = "789.123456";
         ZDistancePicker.Text = "3.456789"; ZFeedPicker.Text = "123.456789";
         double[] physicalInputs = { 12.345678, 789.123456, 3.456789, 123.456789 };
-        Assert(_unitPresets[ZDistancePicker].Values.SequenceEqual(new[] { .1, .25, 1, 5, 10, 25 })
-            && _unitPresets[DistancePicker].Values.SequenceEqual(new[] { .1, 1, 5, 10, 25, 50 }),
-            "Metric XY and Z step menus use 25 millimeters instead of 25.4");
-        Assert(new[] { FeedPicker, ZFeedPicker }.All(picker => _unitPresets[picker].Values.SequenceEqual(new[] { 100d, 300d, 500d, 1000d, 1500d, 2000d })),
-            "Both feed lists are exactly 100, 300, 500, 1000, 1500 and 2000 millimeters per minute");
+        Assert(new[] { DistancePicker, ZDistancePicker }.All(picker =>
+            _unitPresets[picker].Values.SequenceEqual(new[] { 1d, 2d, 3d, 6d, 13d, 25d, 50d })),
+            "Both metric step menus are exactly 1, 2, 3, 6, 13, 25 and 50 millimeters");
+        Assert(new[] { FeedPicker, ZFeedPicker }.All(picker => _unitPresets[picker].Values.SequenceEqual(new[] { 125d, 300d, 500d, 1000d, 1500d, 2000d })),
+            "Both feed lists are exactly 125, 300, 500, 1000, 1500 and 2000 millimeters per minute");
         var settingsBeforeUnits = Controller.Snapshot.Settings.ToDictionary(pair => pair.Key, pair => pair.Value);
         int unitLogStart = _log.Length;
         for (int roundtrip = 0; roundtrip < 3; roundtrip++)
         {
             Click(UnitsButton);
-            string customZText = ZDistancePicker.Text;
-            ZDistancePicker.Text = _unitPresets[ZDistancePicker].Keys.First();
             string InchPreset(double value) => value.ToString("0.########", CultureInfo.CurrentCulture);
-            Assert(_unitPresets[DistancePicker].Keys.SequenceEqual(new[] { .03125, .0625, .125, .25, .5, 1, 2 }.Select(InchPreset))
-                && _unitPresets[ZDistancePicker].Keys.SequenceEqual(new[] { .03125, .0625, .125, .25, .5, 1 }.Select(InchPreset))
-                && Math.Abs(ReadMillimeters(ZDistancePicker, "1/32 inch preset", 100) - .79375) < 1e-12,
-                "Separate inch step menus match the requested increments and 1/32 inch converts to 0.79375 millimeters");
-            ZDistancePicker.Text = customZText;
-            // Restore the canonical custom value because this test intentionally
-            // selected a different preset between the two unit-toggle clicks.
-            _unitValues[ZDistancePicker] = (physicalInputs[2], customZText);
+            double[] inchSteps = { .03125, .0625, .125, .25, .5, 1, 2 };
+            string[] fractionLabels = { " (1/32″)", " (1/16″)", " (1/8″)", " (1/4″)", " (1/2″)", "", "" };
+            foreach (var picker in new[] { DistancePicker, ZDistancePicker })
+            {
+                string customText = picker.Text;
+                var saved = _unitValues[picker];
+                Assert(picker.Items.Cast<UnitPreset>().Select(item => item.DisplayText).SequenceEqual(
+                    inchSteps.Select((value, index) => InchPreset(value) + "″" + fractionLabels[index])),
+                    $"{picker.Name}: inch menu shows decimal values with fractions through 2 inches");
+                for (int index = 0; index < inchSteps.Length; index++)
+                {
+                    picker.SelectedIndex = index;
+                    Assert(picker.Text == InchPreset(inchSteps[index]) + "″" + fractionLabels[index]
+                        && Math.Abs(ReadMillimeters(picker, "inch preset", 100) - inchSteps[index] * 25.4) < 1e-12,
+                        $"{picker.Name}: selecting inch preset {index + 1} retains its annotated label and exact millimeter conversion");
+                }
+                // Restore the custom value after deliberately selecting each preset.
+                picker.SelectedIndex = -1;
+                picker.Text = customText;
+                _unitValues[picker] = saved;
+            }
             Assert(_displayInches && MachineHeader.Text == "Machine (in)" && StoredOffsetHeader.Text.EndsWith("(in)") && FeedLabel.Text.Contains("in/min") && ZDistanceLabel.Text.EndsWith("(in)"),
                 "Inch display updates coordinate, XY and Z labels");
             var machine = Controller.Snapshot.MachinePosition!;
@@ -696,13 +779,30 @@ public partial class MainWindow : Window
             Assert(!_displayInches && UnitInputs.Select((picker, index) => Math.Abs(ReadMillimeters(picker, "roundtrip", index % 2 == 0 ? 100 : 10000) - physicalInputs[index]) < 1e-10).All(match => match),
                 "Millimeter/inch roundtrip preserves all four custom physical inputs without drift");
         }
+        DistancePicker.Text = "25"; FeedPicker.Text = "125";
+        ZDistancePicker.Text = "0.1"; ZFeedPicker.Text = "300";
+        double[] unsnappedInputs = { 25d, 125d, .1, 300d };
+        for (int toggle = 0; toggle < 6; toggle++)
+        {
+            Click(UnitsButton);
+            Assert(UnitInputs.Select((picker, index) => Math.Abs(ReadMillimeters(picker, "native preset roundtrip",
+                index % 2 == 0 ? 100 : 10000) - unsnappedInputs[index]) < 1e-12).All(match => match),
+                "Unit changes preserve native metric presets and custom 0.1 mm without snapping to nearby inch presets");
+        }
         Assert(! _log.ToString()[unitLogStart..].Contains("> ") && Controller.Snapshot.Settings.All(pair => settingsBeforeUnits[pair.Key] == pair.Value),
             "Display-unit toggles send no commands and change no controller settings");
         Click(UnitsButton);
         Assert(new[] { FeedPicker, ZFeedPicker }.All(picker =>
             _unitPresets[picker].Keys.SequenceEqual(new[] { "5", "12", "20", "40", "60", "78" })
+            && picker.Items.Cast<UnitPreset>().All(item => item.DisplayText == item.InputText)
             && _unitPresets[picker].Values.SequenceEqual(new[] { 5d, 12d, 20d, 40d, 60d, 78d }.Select(value => value * 25.4))),
             "Both inch feed menus use 5, 12, 20, 40, 60 and 78 in/min with exact millimeter conversion");
+        DistancePicker.SelectedIndex = 5; ZDistancePicker.SelectedIndex = 6;
+        Click(UnitsButton);
+        Assert(ReadMillimeters(DistancePicker, "one inch", 100) == 25.4 && ReadMillimeters(ZDistancePicker, "two inches", 100) == 50.8,
+            "Selected 1 and 2 inch steps convert to 25.4 and 50.8 mm without snapping to metric presets");
+        Click(UnitsButton);
+        Assert(DistancePicker.Text == "1″" && ZDistancePicker.Text == "2″", "Independent whole-inch steps survive a metric roundtrip");
         DistancePicker.Text = "0.1"; FeedPicker.Text = "20";
         ZDistancePicker.Text = "0.025"; ZFeedPicker.Text = "5";
         int inchJogLogStart = _log.Length;
