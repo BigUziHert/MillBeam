@@ -12,7 +12,7 @@
     <Product>MillBeam</Product>
     <AssemblyTitle>MillBeam</AssemblyTitle>
     <ApplicationIcon>Assets/MillBeam.ico</ApplicationIcon>
-    <Description>GRBL milling and laser setup controller for the PROVerXL 6050 Plus</Description>
+    <Description>MillBeam CNC and laser control for GRBL controllers</Description>
   </PropertyGroup>
   <ItemGroup><ProjectReference Include="../GenmitsuControl.Core/GenmitsuControl.Core.csproj" /></ItemGroup>
   <ItemGroup><ProjectReference Include="../GenmitsuControl.Updates/GenmitsuControl.Updates.csproj" /></ItemGroup>

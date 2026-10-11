@@ -41,6 +41,8 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        foreach (var picker in UnitInputs)
+            picker.CustomInputChanged += (_, _) => _unitValues.Remove(picker);
         UpdateUnitInputs(new[] { 1d, 500d, 1d, 500d });
         RefreshPorts();
         AppendLog("Ready. Connect to a GRBL 1.1 controller, or select Simulator to explore.");
@@ -158,7 +160,7 @@ public partial class MainWindow : Window
         await Controller.JogAsync(Axis('X'), Axis('Y'), Axis('Z'), feed);
     });
 
-    private ComboBox[] UnitInputs => new[] { DistancePicker, FeedPicker, ZDistancePicker, ZFeedPicker };
+    private JogPresetPicker[] UnitInputs => new[] { DistancePicker, FeedPicker, ZDistancePicker, ZFeedPicker };
     private string UnitSymbol => _displayInches ? "in" : "mm";
     private string FormatInput(double millimeters) => (millimeters / (_displayInches ? 25.4 : 1)).ToString("0.########", CultureInfo.CurrentCulture);
 
@@ -166,9 +168,10 @@ public partial class MainWindow : Window
     {
         string text = picker.Text.Trim();
         double value;
-        // Keep canonical physical values for displayed conversions and presets.
-        // Merely switching units never rounds a distance or feed cumulatively.
-        if (_unitValues.TryGetValue(picker, out var saved) && text == saved.DisplayText) value = saved.Millimeters;
+        // Explicit selections use the displayed preset's actual physical value.
+        // Custom conversions reuse the canonical value until the editor changes.
+        if (picker is JogPresetPicker { PresetIndex: int index } && picker.Items[index] is UnitPreset selected) value = selected.Millimeters;
+        else if (_unitValues.TryGetValue(picker, out var saved) && text == saved.DisplayText) value = saved.Millimeters;
         else if (_unitPresets.TryGetValue(picker, out var presets) && presets.TryGetValue(text, out var preset)) value = preset;
         else value = PositiveNumber(text, name, maximum / (_displayInches ? 25.4 : 1)) * (_displayInches ? 25.4 : 1);
         if (!double.IsFinite(value) || value <= 0 || value > maximum + 1e-9)
@@ -177,15 +180,15 @@ public partial class MainWindow : Window
         return value;
     }
 
-    private void UpdateUnitInputs(double[] values)
+    private void UpdateUnitInputs(double[] values, int?[]? presetIndices = null)
     {
         var inputs = UnitInputs;
         for (int i = 0; i < inputs.Length; i++)
         {
             var picker = inputs[i];
             // Distance and feed menus have useful native increments for each display unit.
-            // Keep all stored values in millimeters; changing menus does not alter
-            // the physical distance already entered in the editable field.
+            // Explicit menu choices pair by position across units. Custom entries
+            // retain their canonical physical value, even when they match a preset.
             bool isFeed = i % 2 == 1;
             double[] presets = isFeed
                 ? (_displayInches ? new[] { 5d, 12d, 20d, 40d, 60d, 78d }.Select(inches => inches * 25.4).ToArray()
@@ -208,15 +211,15 @@ public partial class MainWindow : Window
                 return new UnitPreset(input, label, value);
             }).ToArray();
             _unitPresets[picker] = items.ToDictionary(item => item.DisplayText, item => item.Millimeters);
-            // Preserve the annotation after selection, while custom numeric text
-            // still uses the ordinary number parser. Only exact preset values
-            // receive a label after conversion; near-equivalent values never snap.
+            // Preserve annotations for selections and numeric text for custom input.
             picker.DisplayMemberPath = nameof(UnitPreset.DisplayText);
             TextSearch.SetTextPath(picker, nameof(UnitPreset.DisplayText));
             picker.ItemsSource = items;
-            string text = items.FirstOrDefault(item => item.Millimeters == values[i])?.DisplayText ?? FormatInput(values[i]);
-            picker.Text = text;
-            _unitValues[picker] = (values[i], text);
+            int? presetIndex = presetIndices?[i];
+            double value = presetIndex is int selectedIndex ? items[selectedIndex].Millimeters : values[i];
+            string text = presetIndex is int labelIndex ? items[labelIndex].DisplayText : FormatInput(value);
+            picker.RestoreInput(text, presetIndex);
+            _unitValues[picker] = (value, text);
             string axis = i < 2 ? "XY" : "Z";
             System.Windows.Automation.AutomationProperties.SetName(picker, $"{axis} jog {(i % 2 == 0 ? "distance" : "feed")} in {(_displayInches ? "inches" : "millimeters")}{(i % 2 == 1 ? " per minute" : "")}");
         }
@@ -230,8 +233,9 @@ public partial class MainWindow : Window
             // place for correction rather than being replaced with a default.
             var values = UnitInputs.Select((picker, index) => ReadMillimeters(picker,
                 $"{(index < 2 ? "XY" : "Z")} jog {(index % 2 == 0 ? "distance" : "feed")}", index % 2 == 0 ? 100 : 10000)).ToArray();
+            var presetIndices = UnitInputs.Select(picker => picker.PresetIndex).ToArray();
             _displayInches = !_displayInches;
-            UpdateUnitInputs(values);
+            UpdateUnitInputs(values, presetIndices);
             _localError = null;
             RenderState();
         }
@@ -567,7 +571,9 @@ public partial class MainWindow : Window
         {
             foreach (var picker in UnitInputs.Where(picker => picker.IsEnabled))
             {
+                ReadMillimeters(picker, "menu layout input", picker == DistancePicker || picker == ZDistancePicker ? 100 : 10000);
                 string previous = picker.Text;
+                int? previousPreset = picker.PresetIndex;
                 var saved = _unitValues[picker];
                 try
                 {
@@ -596,8 +602,7 @@ public partial class MainWindow : Window
                 finally
                 {
                     picker.IsDropDownOpen = false;
-                    picker.SelectedIndex = -1;
-                    picker.Text = previous;
+                    picker.RestoreInput(previous, previousPreset);
                     _unitValues[picker] = saved;
                 }
             }
@@ -607,7 +612,9 @@ public partial class MainWindow : Window
             if (!_displayInches) return;
             foreach (var picker in new[] { DistancePicker, ZDistancePicker })
             {
+                ReadMillimeters(picker, "step layout input", 100);
                 string previous = picker.Text;
+                int? previousPreset = picker.PresetIndex;
                 var saved = _unitValues[picker];
                 try
                 {
@@ -647,8 +654,7 @@ public partial class MainWindow : Window
                 finally
                 {
                     picker.IsDropDownOpen = false;
-                    picker.SelectedIndex = -1;
-                    picker.Text = previous;
+                    picker.RestoreInput(previous, previousPreset);
                     _unitValues[picker] = saved;
                 }
             }
@@ -691,7 +697,8 @@ public partial class MainWindow : Window
             stableBounds = stationaryControls.Select(Bounds).ToArray();
             resizingForTest = false;
         }
-        Assert(Title.StartsWith("MillBeam") && Icon is not null && BrandLogo.Source is not null, "MillBeam window title, logo and taskbar/window icon are loaded");
+        Assert(Title == "MillBeam" && BrandLogo.ToolTip.ToString() == "MillBeam · CNC & Laser Control"
+            && Icon is not null && BrandLogo.Source is not null, "Generic MillBeam title, logo tooltip and taskbar/window icon are loaded");
         var handle = new WindowInteropHelper(this).Handle;
         Assert(SendMessage(handle, 0x007F, (IntPtr)1, IntPtr.Zero) != IntPtr.Zero && SendMessage(handle, 0x007F, IntPtr.Zero, IntPtr.Zero) != IntPtr.Zero,
             "Windows receives both large and small MillBeam window icons");
@@ -839,8 +846,8 @@ public partial class MainWindow : Window
             "Both inch feed menus use 5, 12, 20, 40, 60 and 78 in/min with exact millimeter conversion");
         DistancePicker.SelectedIndex = 5; ZDistancePicker.SelectedIndex = 6;
         Click(UnitsButton);
-        Assert(ReadMillimeters(DistancePicker, "one inch", 100) == 25.4 && ReadMillimeters(ZDistancePicker, "two inches", 100) == 50.8,
-            "Selected 1 and 2 inch steps convert to 25.4 and 50.8 mm without snapping to metric presets");
+        Assert(ReadMillimeters(DistancePicker, "one inch pair", 100) == 25 && ReadMillimeters(ZDistancePicker, "two inch pair", 100) == 50,
+            "Selected 1 and 2 inch steps pair with 25 and 50 mm using their actual metric values");
         Click(UnitsButton);
         Assert(DistancePicker.Text == "1″" && ZDistancePicker.Text == "2″", "Independent whole-inch steps survive a metric roundtrip");
         DistancePicker.Text = "0.1"; FeedPicker.Text = "20";
@@ -875,8 +882,9 @@ public partial class MainWindow : Window
         DistancePicker.Text = "0.1";
         Click(UnitsButton);
         Assert(!_displayInches && _localError is null, "Corrected input allows switching back to millimeters");
+        await RunJogPresetSmokeTestsAsync(Assert, Click, () => WaitReady(), WaitUntil);
         _activeSimulator!.MotionDuration = TimeSpan.FromSeconds(3);
-        DistancePicker.Text = "1"; FeedPicker.Text = "500";
+        DistancePicker.SelectedIndex = 0; FeedPicker.SelectedIndex = 2;
         var positiveX = JogPad.Children.OfType<Button>().Single(button => (string)button.Tag == "X+");
         var jogStart = Controller.Snapshot.MachinePosition!;
         UpdateLayout();
@@ -909,6 +917,9 @@ public partial class MainWindow : Window
         Click(UnitsButton);
         Assert(Controller.Snapshot.IsJogPaused && Controller.Snapshot.CanResumeJog && PauseJogButton.Content.ToString() == "Resume"
             && ! _log.ToString()[pausedUnitLogStart..].Contains("> "), "Changing display units while paused preserves the saved jog and sends no command");
+        Assert(ReadMillimeters(DistancePicker, "paused paired step", 100) == .79375
+            && ReadMillimeters(FeedPicker, "paused paired feed", 10000) == 508,
+            "Paused unit change pairs the input presets for subsequent jogs");
         AssertPauseLayout("Paused unit change");
         Click(PauseJogButton);
         AssertPauseLayout("Resume requested");
@@ -917,6 +928,8 @@ public partial class MainWindow : Window
         await WaitUntil(() => Controller.Snapshot.IsIdle && !Controller.Snapshot.Busy, "Resumed jog finishes");
         Assert(Controller.Snapshot.MachinePosition is { } finished && Math.Abs(finished.X - jogStart.X - 1) < .003 && Math.Abs(finished.Y - jogStart.Y) < .003 && Math.Abs(finished.Z - jogStart.Z) < .003,
             "Resume reaches original target instead of repeating the full distance");
+        Assert(_log.ToString()[pausedUnitLogStart..].Contains("F500"),
+            "Resume retains captured feed 500 despite the paired input now displaying 20 in/min (508 mm/min)");
         Assert(PauseJogButton.Content.ToString() == "Pause" && !PauseJogButton.IsEnabled, "Completed jog has no remaining Resume action");
         Click(UnitsButton);
         Click(positiveX); await WaitReady();

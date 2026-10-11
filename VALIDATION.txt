@@ -1,6 +1,19 @@
 MillBeam 1.5.0 - validation record
 Platform: Windows x64; native WPF / .NET 8
 
+Current combined revision (2026-10-11): Release build completed with zero
+warnings or errors. The local executable passed 970 simulator UI assertions,
+31 shutdown assertions and 51 update-window assertions. These cover every
+step/feed preset pair in both directions for all four controls, independent
+custom values, typing numbers identical to presets, reselecting the same row,
+undo/redo, and atomic invalid-input rejection. Simulator wire commands and
+endpoints verify the true paired distances and feeds as well as exact custom
+conversions. Paused pairing retains the captured original target and feed.
+Both step menus in both units were rendered and inspected at the bottom edge;
+all dropdown gap checks remained zero. The exact generic title and logo
+tooltip also passed. Earlier revision counts below are historical; GitHub
+release packages include reports from testing their own published executable.
+
 BUILD
 Release build completed successfully with zero compiler warnings or errors.
 Portable executable published self-contained for win-x64, as a compressed
@@ -108,9 +121,9 @@ DIAGONAL CONTROLS, INDEPENDENT Z INPUTS AND DISPLAY UNITS
 Actual arrow-button handlers send all four coordinated XY diagonal commands
 with the selected XY step applied to each active axis. Tests confirm endpoints
 and unchanged Z. Z buttons read their separate distance/feed fields.
-The Units button converts all nine coordinate values (machine, work and G54),
-labels and the four input fields using 25.4 mm per inch. Preset menus have
-separate native values for each unit system.
+The Units button converts all nine coordinate values (machine, work and G54)
+and custom numeric inputs using 25.4 mm per inch, and updates their labels.
+Each of the four dropdowns has paired native presets for the two unit systems.
 Inch entries produce the expected explicit G21/mm wire commands for both XY
 and Z; Work retains its established coordinated XYZ move at the selected XY
 feed. Unit toggling issues no settings writes or motion. Custom input values
@@ -123,30 +136,42 @@ Current metric XY and Z step menus both offer 1, 2, 3, 6, 13, 25 and 50 mm.
 Both inch step menus offer 0.03125″ (1/32″), 0.0625″ (1/16″), 0.125″ (1/8″),
 0.25″ (1/4″), 0.5″ (1/2″), 1″ and 2″. Fractional presets show their decimal
 and fraction in both the open menus and the selected fields when closed.
-Custom positive decimal entries, including 0.1 mm, remain supported. Existing
-entered values retain their exact physical distance when changing display
-units instead of snapping to a nearby preset; XY and Z stay independent.
+Custom positive decimal entries, including 0.1 mm, remain supported. Typed
+custom values retain their exact physical distance or speed when changing
+units, without snapping or cumulative rounding, even when a typed number
+equals a preset. XY and Z retain independent values and selection intent.
 Both metric feed menus offer 125, 300, 500, 1000, 1500 and 2000 mm/min.
-Both inch feed menus offer 5, 12, 20, 40, 60 and 78 in/min. The smoke checks
-verify both sets of menus and their millimeter mapping, 1/32 inch conversion
-to 0.79375 mm, and custom input roundtrips. Inch XY and Z jogs send F508 and
-F127 for the 20 and 5 in/min presets respectively. Feed labels remain whole
-numbers. Defaults are unchanged.
+Both inch feed menus offer 5, 12, 20, 40, 60 and 78 in/min. Feed labels remain
+whole numbers. Initial defaults remain 1 mm and 500 mm/min for both axes.
 
-Preset revision validation (2026-10-11): Release solution build completed with
-zero warnings and errors; all 76 controller checks, 20 updater checks and 7
+Current preset-pairing behavior (2026-10-11): Explicit dropdown selection in
+XY Step, Z Step, XY Feed or Z Feed opts that control into paired presets.
+Unit switching maps the same list position in either direction; switching
+back restores the original paired option. Step pairs are 1, 2, 3, 6, 13, 25,
+50 mm <-> 1/32, 1/16, 1/8, 1/4, 1/2, 1, 2 inches respectively. Feed pairs
+are 125, 300, 500, 1000, 1500, 2000 mm/min <-> 5, 12, 20, 40, 60, 78 in/min
+respectively. The actual physical value changes to match the newly displayed
+preset; subsequent jogs use that distance/feed. For example, 1/32 inch is
+0.79375 mm, and 20 and 5 in/min correspond to F508 and F127. Typed custom
+entries clear preset intent and continue exact physical conversion. Neither
+unit toggling nor preset mapping sends motion or controller-setting commands.
+Paused jogs retain their captured original target and feed.
+
+Earlier preset revision validation (2026-10-11): Release solution build
+completed with zero warnings and errors; all 76 controller checks, 20 updater checks and 7
 publication checks passed. The local Release executable passed 367 simulator
 UI assertions, 31 shutdown assertions and 51 update-window assertions. The
-UI checks select every annotated inch preset on both axes, retain custom
-0.1 mm input, and verify that 25 mm / 125 mm/min and 1 / 2 inch values do not
-snap to nearby presets during unit changes. Glyph bounds checks cover the
-longest selected label and open dropdown at default, compact and maximized
+UI checks selected every annotated inch preset on both axes, retained custom
+0.1 mm input, and verified the earlier behavior in which 25 mm / 125 mm/min
+and 1 / 2 inch values did not snap during unit changes. Explicitly selected
+presets now follow the pairing behavior described above. Glyph bounds checks
+covered the longest selected label and open dropdown at default, compact and maximized
 sizes. Rendered selected-field and dropdown screenshots were also inspected.
 Earlier packaged validation counts above are historical; each GitHub release
 includes the reports from testing its own packaged executable.
 
-Dropdown spacing regression (2026-10-11): Reproduced a 34.28-DIP blank area
-below the final step option with the previous whole-item scrolling behavior.
+Earlier dropdown spacing regression (2026-10-11): Reproduced a 34.28-DIP blank
+area below the final step option with the previous whole-item scrolling behavior.
 The popup now scrolls by pixels under its existing height limit. New checks
 scroll every XY/Z step and feed menu to the bottom in both unit modes and
 verify the final option is fully visible, selectable and at the viewport edge.
@@ -154,8 +179,9 @@ All measured trailing gaps were zero at default, compact and maximized sizes.
 Rendered bottom-edge screenshots for both step menus in both unit modes were
 visually compared with the compact feed menus. The Release build completed
 with no warnings or errors; 511 simulator UI assertions, 31 shutdown assertions
-and 51 update-window assertions passed. Presets, selected fraction annotations,
-custom entries and exact unit conversions are unchanged.
+and 51 update-window assertions passed. That spacing revision retained the
+presets, selected fraction annotations, custom entries and unit conversions
+from the earlier preset revision.
 
 Units now sits between the mode indicator and connection badge with compact
 spacing while preserving fixed button positions across status changes.
@@ -203,7 +229,10 @@ downloads the fixed repository's MillBeam.exe asset. No credentials are built
 into the app. Per-build logs and screenshots are stored as Actions artifacts.
 
 BRANDING AND WINDOWS ICONS
-Executable name, product metadata and window title use MillBeam. The cropped
+Executable name and product metadata use MillBeam. The window title is exactly
+MillBeam; the logo tooltip is "MillBeam · CNC & Laser Control" and its
+accessibility name is MillBeam. Branding omits machine-model wording; GRBL
+protocol support and live controller reporting are unchanged. The cropped
 transparent wordmark is embedded in the header. Disconnected mode status is
 collapsed, leaving one connection badge at the far right. Connected mode and
 verification status remain visible alongside it. The app sets its own stable
