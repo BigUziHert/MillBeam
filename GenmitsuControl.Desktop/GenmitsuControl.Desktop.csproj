@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MillBeam</AssemblyName>
+    <RootNamespace>GenmitsuControl.Desktop</RootNamespace>
+    <Version>1.5.0</Version>
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">1.5.0-dev.0.0</InformationalVersion>
+    <Product>MillBeam</Product>
+    <AssemblyTitle>MillBeam</AssemblyTitle>
+    <ApplicationIcon>Assets/MillBeam.ico</ApplicationIcon>
+    <Description>GRBL milling and laser setup controller for the PROVerXL 6050 Plus</Description>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../GenmitsuControl.Core/GenmitsuControl.Core.csproj" /></ItemGroup>
+  <ItemGroup><ProjectReference Include="../GenmitsuControl.Updates/GenmitsuControl.Updates.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Resource Include="Assets/MillBeam-logo.png" />
+    <Resource Include="Assets/MillBeam.ico" />
+  </ItemGroup>
+</Project>

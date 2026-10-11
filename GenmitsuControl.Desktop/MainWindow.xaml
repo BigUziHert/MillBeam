@@ -1,0 +1,143 @@
+<Window x:Class="GenmitsuControl.Desktop.MainWindow"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+ Title="MillBeam · PROVerXL 6050 Plus" Icon="Assets/MillBeam.ico" Width="1320" Height="950" MinWidth="800" MinHeight="500"
+ WindowStartupLocation="CenterScreen" Closing="Window_Closing">
+ <Grid x:Name="Viewport" Background="#F3F9FF" SizeChanged="Viewport_SizeChanged">
+ <Viewbox x:Name="LayoutScale" Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+ <Grid x:Name="RootLayout" Background="#F3F9FF" Width="1304" Height="911">
+  <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+  <Border x:Name="HeaderBar" Padding="28,10" BorderBrush="#DCE8F3" BorderThickness="0,0,0,1">
+   <Border.Background><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FFFFFF" Offset="0"/><GradientStop Color="#F4FAFF" Offset="1"/></LinearGradientBrush></Border.Background>
+   <Grid>
+    <Image x:Name="BrandLogo" Width="252" Height="56" Stretch="Uniform" HorizontalAlignment="Left" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" AutomationProperties.Name="MillBeam" ToolTip="MillBeam · CNC &amp; Laser Control · PROVerXL 6050 Plus / GRBL 1.1"><Image.Source><CroppedBitmap SourceRect="79,117,2023,453"><CroppedBitmap.Source><BitmapImage UriSource="Assets/MillBeam-logo.png"/></CroppedBitmap.Source></CroppedBitmap></Image.Source></Image>
+    <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center">
+     <Border Width="310"><StackPanel x:Name="ModePanel" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,12,0" Visibility="Collapsed"><Ellipse x:Name="ModeDot" Width="14" Height="14" Fill="#A2ADC0" Margin="0,0,10,0"/><TextBlock x:Name="ModeText" Text="Unknown" FontSize="22" FontWeight="Medium" VerticalAlignment="Center"><TextBlock.ToolTip><ToolTip><TextBlock x:Name="SettingsText" Text="Mode and acceleration are read from the connected controller." TextWrapping="Wrap" MaxWidth="400"/></ToolTip></TextBlock.ToolTip></TextBlock><Border Width="1" Height="27" Background="#CBD8F1" Margin="16,0,0,0"/></StackPanel></Border>
+     <Button x:Name="UnitsButton" Content="Units: mm" Click="Units_Click" Margin="0,0,12,0" Padding="14,8" Width="136" AutomationProperties.Name="Display units: millimeters. Switch to inches" ToolTip="Switch displayed coordinates and jog inputs between millimeters and inches. Does not change $13 or G20/G21. Console commands use the controller's G20/G21 units."/>
+     <Border x:Name="ConnectionBadgeBorder" Width="164" Background="#EFF3F8" BorderBrush="#D7DFEB" BorderThickness="1" CornerRadius="10" Padding="14,9">
+      <StackPanel Orientation="Horizontal"><Ellipse x:Name="ConnectionDot" Width="14" Height="14" Fill="#9CA9BE" Margin="0,0,10,0"/><TextBlock x:Name="ConnectionBadge" Text="DISCONNECTED" FontSize="15" FontWeight="Medium"/></StackPanel>
+     </Border>
+    </StackPanel>
+   </Grid>
+  </Border>
+   <Grid x:Name="BodyGrid" Grid.Row="1" Margin="28,10,28,12">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*" MinHeight="186"/></Grid.RowDefinitions>
+    <Grid Grid.Row="0" Margin="0,0,0,12">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+     <StackPanel><TextBlock Text="Connection" Foreground="#494A9D" FontSize="14" FontWeight="SemiBold" Margin="1,0,0,4"/><ComboBox x:Name="PortPicker" AutomationProperties.Name="Serial port" Height="44" MinWidth="220"/></StackPanel>
+     <Button x:Name="RefreshPortsButton" Grid.Column="1" Content="Refresh Ports" Margin="11,22,0,0" Click="RefreshPorts_Click" Padding="21,8"/>
+     <Button x:Name="ConnectButton" Grid.Column="2" Content="Connect" Margin="11,22,0,0" Click="Connect_Click" MinWidth="112"/>
+     <Button x:Name="DisconnectButton" Grid.Column="3" Content="Disconnect" Margin="11,22,0,0" IsEnabled="False" Click="Disconnect_Click" ToolTip="Close and release the serial port so LightBurn can connect." MinWidth="130"/>
+     <TextBlock Grid.Column="4" Text="115200 baud · 8-N-1" Style="{StaticResource Caption}" VerticalAlignment="Center" Margin="21,22,0,0"/>
+    </Grid>
+    <Grid Grid.Row="1" Margin="0,0,0,12">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="10"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Button x:Name="MillingButton" Grid.Column="0" Content="Milling Mode" Click="Milling_Click" Height="54" FontSize="25" Padding="18,5" IsEnabled="False"
+      ToolTip="Apply $32=0 and X/Y/Z acceleration of 300 mm/s². No previous work datum is restored."/>
+     <Button x:Name="LaserButton" Grid.Column="2" Click="Laser_Click" Height="54" FontSize="25" Padding="18,5" IsEnabled="False" Background="#FFF5DC" BorderBrush="#FFCD64" Foreground="#573B10" AutomationProperties.Name="Laser Mode"
+      ToolTip="Apply $32=1, X/Y acceleration of 1,000 mm/s² and Z of 300 mm/s². Clear the stored G54 offset and verify zero."><TextBlock Text="Laser Mode" Foreground="#573B10"/></Button>
+    </Grid>
+    <Grid Grid.Row="2" Margin="0,0,0,12">
+     <Grid.ColumnDefinitions><ColumnDefinition Width="1.35*"/><ColumnDefinition Width="16"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+     <Border Grid.Column="0" Style="{StaticResource Card}">
+      <StackPanel>
+       <Grid MinHeight="36"><TextBlock Text="Position &amp; Jog" FontSize="25" FontWeight="SemiBold" Padding="0,0,0,2" VerticalAlignment="Center"/><Border x:Name="StateBadge" HorizontalAlignment="Right" VerticalAlignment="Center" Height="30" Background="#EEF2F9" BorderBrush="#DAE3F1" BorderThickness="1" CornerRadius="9" Padding="12,4"><StackPanel Orientation="Horizontal"><Ellipse x:Name="StateDot" Width="13" Height="13" Fill="#9CA9BE" Margin="0,0,9,0"/><TextBlock x:Name="ControllerStateText" Text="OFFLINE" FontSize="14" FontWeight="Medium" VerticalAlignment="Center"/></StackPanel></Border></Grid>
+       <Grid Margin="0,8,0,8">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="0.42*"/><ColumnDefinition Width="*"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Grid.RowDefinitions><RowDefinition Height="24"/><RowDefinition Height="32"/><RowDefinition Height="32"/><RowDefinition Height="32"/></Grid.RowDefinitions>
+        <Border Grid.Row="0" Grid.ColumnSpan="3" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"/>
+        <Border Grid.Row="1" Grid.ColumnSpan="3" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"/>
+        <Border Grid.Row="2" Grid.ColumnSpan="3" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"/>
+        <Border Grid.Row="3" Grid.ColumnSpan="3" BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1"/>
+        <TextBlock Text="Axis" Style="{StaticResource Caption}" Margin="7,0,0,0"/>
+        <TextBlock x:Name="MachineHeader" Grid.Column="1" Text="Machine (mm)" Style="{StaticResource Caption}"/>
+        <TextBlock x:Name="WorkHeader" Grid.Column="2" Text="Work G54 (mm)" Style="{StaticResource Caption}"/>
+        <TextBlock Grid.Row="1" Text="X" Foreground="{StaticResource Axis}" FontSize="23" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="2" Text="Y" Foreground="{StaticResource Axis}" FontSize="23" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center"/>
+        <TextBlock Grid.Row="3" Text="Z" Foreground="{StaticResource Axis}" FontSize="23" FontWeight="SemiBold" Margin="7,0,0,0" VerticalAlignment="Center"/>
+        <TextBlock x:Name="MachineX" Grid.Row="1" Grid.Column="1" Text="—" FontFamily="Consolas" FontSize="24" VerticalAlignment="Center"/><TextBlock x:Name="MachineY" Grid.Row="2" Grid.Column="1" Text="—" FontFamily="Consolas" FontSize="24" VerticalAlignment="Center"/><TextBlock x:Name="MachineZ" Grid.Row="3" Grid.Column="1" Text="—" FontFamily="Consolas" FontSize="24" VerticalAlignment="Center"/>
+        <TextBlock x:Name="WorkX" Grid.Row="1" Grid.Column="2" Text="—" FontFamily="Consolas" FontSize="24" VerticalAlignment="Center"/><TextBlock x:Name="WorkY" Grid.Row="2" Grid.Column="2" Text="—" FontFamily="Consolas" FontSize="24" VerticalAlignment="Center"/><TextBlock x:Name="WorkZ" Grid.Row="3" Grid.Column="2" Text="—" FontFamily="Consolas" FontSize="24" VerticalAlignment="Center"/>
+       </Grid>
+       <Grid Height="144">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="186"/><ColumnDefinition Width="12"/><ColumnDefinition Width="54"/><ColumnDefinition Width="18"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Grid x:Name="JogPad" Width="186" Height="144">
+         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions><Grid.RowDefinitions><RowDefinition/><RowDefinition/><RowDefinition/></Grid.RowDefinitions>
+         <Button Grid.Row="0" Grid.Column="0" Tag="X-Y+" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog negative X and positive Y" ToolTip="Jog X− and Y+ together. Each axis travels the XY step distance at the selected combined XY feed."><Path Data="M 3 17 L 3 3 L 17 3 M 3 3 L 18 18" Stroke="{StaticResource Ink}" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Grid.Row="0" Grid.Column="1" Tag="Y+" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog positive Y" ToolTip="Jog Y+"><Path Data="M 1 12 L 11 2 L 21 12" Stroke="{StaticResource Ink}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Grid.Row="0" Grid.Column="2" Tag="X+Y+" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog positive X and positive Y" ToolTip="Jog X+ and Y+ together. Each axis travels the XY step distance at the selected combined XY feed."><Path Data="M 3 3 L 17 3 L 17 17 M 17 3 L 2 18" Stroke="{StaticResource Ink}" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Grid.Row="1" Grid.Column="0" Tag="X-" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog negative X" ToolTip="Jog X−"><Path Data="M 12 1 L 2 11 L 12 21" Stroke="{StaticResource Ink}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Border Grid.Row="1" Grid.Column="1" Margin="2" Background="#FCFDFF" BorderBrush="#E4EDF8" BorderThickness="1" CornerRadius="10"><Ellipse Width="15" Height="15" Fill="#A4ADC4"/></Border>
+         <Button Grid.Row="1" Grid.Column="2" Tag="X+" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog positive X" ToolTip="Jog X+"><Path Data="M 2 1 L 12 11 L 2 21" Stroke="{StaticResource Ink}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Grid.Row="2" Grid.Column="0" Tag="X-Y-" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog negative X and negative Y" ToolTip="Jog X− and Y− together. Each axis travels the XY step distance at the selected combined XY feed."><Path Data="M 3 3 L 3 17 L 17 17 M 3 17 L 18 2" Stroke="{StaticResource Ink}" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Grid.Row="2" Grid.Column="1" Tag="Y-" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog negative Y" ToolTip="Jog Y−"><Path Data="M 1 2 L 11 12 L 21 2" Stroke="{StaticResource Ink}" StrokeThickness="3" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Grid.Row="2" Grid.Column="2" Tag="X+Y-" Margin="2" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog positive X and negative Y" ToolTip="Jog X+ and Y− together. Each axis travels the XY step distance at the selected combined XY feed."><Path Data="M 3 17 L 17 17 L 17 3 M 17 17 L 2 2" Stroke="{StaticResource Ink}" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+        </Grid>
+        <StackPanel Grid.Column="2" Width="54" VerticalAlignment="Center" x:Name="ZJogPad">
+         <Button Tag="Z+" Height="54" Margin="0,0,0,10" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog positive Z" ToolTip="Jog Z+ using the separate Z step and feed."><Path Data="M 1 10 L 11 0 L 21 10 M 11 0 L 11 23" Stroke="{StaticResource Ink}" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+         <Button Tag="Z-" Height="54" Padding="8" Click="Jog_Click" AutomationProperties.Name="Jog negative Z" ToolTip="Jog Z− using the separate Z step and feed."><Path Data="M 1 13 L 11 23 L 21 13 M 11 0 L 11 23" Stroke="{StaticResource Ink}" StrokeThickness="2.7" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
+        </StackPanel>
+        <Grid Grid.Column="4" VerticalAlignment="Center">
+         <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="12"/><ColumnDefinition/></Grid.ColumnDefinitions>
+         <StackPanel>
+          <TextBlock x:Name="DistanceLabel" Text="XY Step (mm)" Style="{StaticResource Caption}" Margin="0,0,0,4"/>
+          <ComboBox x:Name="DistancePicker" IsEditable="True" Text="1" Height="38" Margin="0,0,0,7" AutomationProperties.Name="XY jog distance in millimeters"/>
+          <TextBlock x:Name="FeedLabel" Text="XY Feed (mm/min)" Style="{StaticResource Caption}" Margin="0,0,0,4"/>
+          <ComboBox x:Name="FeedPicker" IsEditable="True" Text="500" Height="38" AutomationProperties.Name="XY jog speed in millimeters per minute"/>
+         </StackPanel>
+         <StackPanel Grid.Column="2">
+          <TextBlock x:Name="ZDistanceLabel" Text="Z Step (mm)" Style="{StaticResource Caption}" Margin="0,0,0,4"/>
+          <ComboBox x:Name="ZDistancePicker" IsEditable="True" Text="1" Height="38" Margin="0,0,0,7" AutomationProperties.Name="Z jog distance in millimeters"/>
+          <TextBlock x:Name="ZFeedLabel" Text="Z Feed (mm/min)" Style="{StaticResource Caption}" Margin="0,0,0,4"/>
+          <ComboBox x:Name="ZFeedPicker" IsEditable="True" Text="500" Height="38" AutomationProperties.Name="Z jog speed in millimeters per minute"/>
+         </StackPanel>
+        </Grid>
+       </Grid>
+       <Grid Margin="0,7,0,0">
+        <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="12"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Button x:Name="PauseJogButton" Grid.Column="0" Content="Pause" Click="PauseJog_Click" Height="42" Padding="12,5" FontSize="20" IsEnabled="False" AutomationProperties.Name="Pause" ToolTip="Pause the current arrow-button jog and retain its remaining distance. Click Resume to continue."/>
+        <Button x:Name="CancelJogButton" Grid.Column="2" Content="Stop" Click="CancelJog_Click" Height="42" Padding="12,5" FontSize="20" IsEnabled="False" ToolTip="Cancel jogging and discard any paused distance, without resetting the controller."/>
+       </Grid>
+      </StackPanel>
+     </Border>
+     <Border Grid.Column="2" Style="{StaticResource Card}">
+      <Grid>
+       <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="64"/><RowDefinition Height="16"/><RowDefinition Height="100"/><RowDefinition Height="16"/><RowDefinition Height="58"/><RowDefinition Height="10"/><RowDefinition Height="50"/></Grid.RowDefinitions>
+       <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="14"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+        <Button x:Name="SetDatumButton" Click="SetDatum_Click" Content="Set Work" IsEnabled="False" FontSize="21" AutomationProperties.Name="Set Work Datum" ToolTip="Set the current position as G54 work zero. This does not move the machine."/>
+        <Button x:Name="ClearDatumButton" Grid.Column="2" Click="ClearDatum_Click" Content="Clear Work" IsEnabled="False" FontSize="21" AutomationProperties.Name="Clear Work Datum" ToolTip="Clear the stored G54 offset and refresh coordinates. This does not move the machine."/>
+       </Grid>
+       <Border Grid.Row="3" Background="#F1F7FF" BorderBrush="#CDDDF7" BorderThickness="1" CornerRadius="12" Padding="17,14">
+        <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+         <TextBlock x:Name="StoredOffsetHeader" Text="Stored G54 Offset (mm)" Style="{StaticResource Caption}"/>
+         <UniformGrid Grid.Row="1" Columns="3" Margin="0,10,0,0">
+          <Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Left" Margin="0,0,8,0"><StackPanel Orientation="Horizontal"><TextBlock Text="X" Foreground="{StaticResource Axis}" FontSize="19" FontWeight="SemiBold" Margin="1,0,12,0"/><TextBlock x:Name="G54X" Text="—" FontFamily="Consolas" FontSize="21" VerticalAlignment="Center"/></StackPanel></Viewbox>
+          <Border BorderBrush="#D4DFF7" BorderThickness="1,0,0,0" Padding="8,0"><Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Center"><StackPanel Orientation="Horizontal"><TextBlock Text="Y" Foreground="{StaticResource Axis}" FontSize="19" FontWeight="SemiBold" Margin="0,0,12,0"/><TextBlock x:Name="G54Y" Text="—" FontFamily="Consolas" FontSize="21" VerticalAlignment="Center"/></StackPanel></Viewbox></Border>
+          <Border BorderBrush="#D4DFF7" BorderThickness="1,0,0,0" Padding="8,0,0,0"><Viewbox Stretch="Uniform" StretchDirection="DownOnly" HorizontalAlignment="Right"><StackPanel Orientation="Horizontal"><TextBlock Text="Z" Foreground="{StaticResource Axis}" FontSize="19" FontWeight="SemiBold" Margin="0,0,12,0"/><TextBlock x:Name="G54Z" Text="—" FontFamily="Consolas" FontSize="21" VerticalAlignment="Center"/></StackPanel></Viewbox></Border>
+         </UniformGrid>
+        </Grid>
+       </Border>
+       <Button x:Name="HomeButton" Grid.Row="5" Content="Home" Click="Home_Click" IsEnabled="False" FontSize="22" ToolTip="Run the homing cycle ($H). Moves the machine to its home switches; does not set or clear the work datum."/>
+       <Button x:Name="WorkButton" Grid.Row="7" Content="Work" Click="Work_Click" IsEnabled="False" FontSize="22" ToolTip="Move X, Y and Z together to G54 zero at the selected XY feed. The separate Z feed applies to Z jogs. Tool output turns off first. Ensure the path is clear."/>
+      </Grid>
+     </Border>
+    </Grid>
+    <Border x:Name="ConsoleCard" Grid.Row="3" Style="{StaticResource Card}" Padding="16,10">
+     <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+      <Grid Margin="0,0,0,8" Height="34"><TextBlock Text="Command Console" FontSize="25" FontWeight="SemiBold" VerticalAlignment="Center"/><StackPanel Orientation="Horizontal" HorizontalAlignment="Right"><Button x:Name="ReadStateButton" Content="Read Controller" Margin="0,0,16,0" Padding="12,4" FontSize="14" MinHeight="34" IsEnabled="False" Click="ReadState_Click" ToolTip="Read the controller's current settings, offsets and position without changing them."/><CheckBox x:Name="ShowStatusCheck" Content="Status Reports" VerticalAlignment="Center" Margin="0,0,16,0"/><Button Content="Save Log" Padding="14,4" MinHeight="34" FontSize="14" Click="SaveLog_Click"/><Button Content="Clear" Padding="17,4" MinHeight="34" FontSize="14" Margin="10,0,0,0" Click="ClearLog_Click"/></StackPanel></Grid>
+      <TextBox x:Name="ConsoleOutput" Grid.Row="1" MinHeight="70" FontFamily="Consolas" FontSize="13" Background="#F9FCFF" IsReadOnly="True" TextWrapping="NoWrap" VerticalContentAlignment="Top" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" AutomationProperties.Name="Controller responses"/>
+      <Grid Grid.Row="2" Margin="0,10,0,0"><Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions><TextBox x:Name="CommandInput" Height="42" KeyDown="CommandInput_KeyDown" AutomationProperties.Name="GRBL command" ToolTip="Raw GRBL command: uses the controller's G20/G21 units, independent of the display units button. Commands may cause movement or enable the tool."/><Button x:Name="SendButton" Grid.Column="1" Content="Send Command" Margin="12,0,0,0" Padding="22,6" Click="Send_Click" IsEnabled="False"/></Grid>
+     </Grid>
+    </Border>
+   </Grid>
+  <Border x:Name="FooterBar" Grid.Row="2" Background="#F8FBFE" BorderBrush="#DCE8F3" BorderThickness="0,1,0,0" Padding="28,7">
+   <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="Auto"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+    <Button x:Name="StopButton" Background="#FFF0F1" BorderBrush="#ECACB2" Foreground="#9B2E3C" FontSize="14" Padding="15,6" MinHeight="36" IsEnabled="False" Click="Stop_Click" AutomationProperties.Name="Software Stop / Reset" ToolTip="Abort motion and reset GRBL. Position may be lost; home again as needed."><TextBlock Text="■  SOFTWARE STOP / RESET" Foreground="#9B2E3C"/></Button>
+    <TextBlock Grid.Column="1" Text="For an emergency, use the machine’s physical emergency stop." Foreground="#737EA0" FontSize="12" Margin="16,0,0,0" VerticalAlignment="Center" TextWrapping="Wrap"/>
+    <Button x:Name="UpdatesButton" Grid.Column="2" Content="Check for updates" Click="Updates_Click" Width="168" Margin="16,0,0,0" Padding="10,6" FontSize="14" MinHeight="36" ToolTip="Check GitHub for a newer MillBeam release. Disconnect the controller first." ToolTipService.ShowOnDisabled="True"/>
+   </Grid>
+  </Border>
+ </Grid>
+ </Viewbox>
+ </Grid>
+</Window>

@@ -1,0 +1,13 @@
+MillBeam branding assets
+
+MillBeam-logo.png: transparent header wordmark, based on the user's approved
+MillBeam-logo-v3 concept. MillBeam-icon.png: matching Windows icon artwork.
+MillBeam.ico: the icon artwork encoded at 16, 20, 24, 32, 40, 48, 64, 128,
+and 256 pixels for Windows. Images were created with the built-in image_gen
+tool. ICO conversion uses WPF bitmap rendering and PNG frame encoding.
+
+HEADER PROMPT
+Edit this approved MillBeam logo for embedding in its software header. Preserve the exact wordmark design, letter shapes, letter spacing, spelling MillBeam, dark teal color, coral dot and coral curved beam accent, and relative proportions. Remove the ivory background and all texture to real alpha transparency. Keep the shapes crisp and solid with clean edges. Crop canvas closely to the entire wordmark with a small even margin of transparent clear space, horizontal aspect ratio about 4.7:1. No redesign, no new icons, no added text or effects. Only background removal and asset cleanup.
+
+ICON PROMPT
+Create a Windows software app icon derived directly from this approved MillBeam logo. A single large dark teal rounded M using the same distinctive soft rounded M shape as the supplied wordmark, on a warm ivory rounded-square tile. Place a compact coral dot and one short coral curved beam arc above the upper-right side of the M, borrowing the logo accent. Simple bold silhouette legible at 16x16 and 32x32 pixels. Square format, tile fills nearly all canvas with small transparent margin, corners round, real alpha transparency outside tile. Flat solid teal, coral and warm ivory. No wordmark, no other letters, no shadows, no 3D, no gradients, no fine detail. Match the approved logo style exactly; this is its companion desktop icon.

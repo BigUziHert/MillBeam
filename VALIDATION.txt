@@ -1,0 +1,202 @@
+MillBeam 1.5.0 - validation record
+Platform: Windows x64; native WPF / .NET 8
+
+BUILD
+Release build completed successfully with zero compiler warnings or errors.
+Portable executable published self-contained for win-x64, as a compressed
+single file. A separate .NET installation is not required to run it.
+
+CONTROLLER AND PROTOCOL TESTS: 76 passed, 0 failed (version 1.5.0)
+The original 57 cases remain, with 19 added coordinated-vector cases.
+Versions 1.4.1 through 1.5.0 change the desktop UI, jog presets and window
+shutdown; controller and serial transport code is unchanged from version 1.4.
+The included GenmitsuControl.Tests console project exercises an independently
+implemented fake GRBL transport and the demonstration simulator. Coverage:
+- Exact requested mode settings, M5 before mode transitions, unrelated settings
+  unchanged, and readback before reporting success.
+- Laser G54 clear and zero verification, including rejection of a reported
+  nonzero 0.001 mm offset.
+- No automatic restoration of an earlier datum on returning to milling.
+- Deliberate laser datum handling and set/clear without movement.
+- Homing without changing datum; homing with suppressed status responses.
+- Command rejection, partial state refresh, setting and offset mismatches.
+- Connected/Idle interlocks, jog cancellation, and immediate software stop
+  while an acknowledgement is pending.
+- Timeout quarantine of late acknowledgements, disconnect/reconnect,
+  simulated USB loss, failed port-open retry, and concurrent close handling.
+- Inch report conversion, machine/work coordinate conversion, G92 and tool
+  offsets, delayed WCO, and absent WCO without reusing stale work coordinates.
+- Work button return: M5 then exactly one coordinated XYZ G54-zero feed move,
+  connected Idle guard, feed validation, early acknowledgement versus physical
+  completion, fresh WCO and final position verification, preservation of datum
+  and settings, no replay on rejection, interruption on Stop or Disconnect,
+  missing status during motion, and starting in another work system/inches.
+- Pause/Resume: original target and feed retained, partial travel and delayed
+  deceleration, repeated pause/resume, negative and fractional steps, completion
+  before pause, missing/changed coordinates, and inch status reports.
+- Paused mutation interlocks; Stop, reset, disconnect, fault, alarm, and timeout
+  invalidation; Stop during initial status acquisition or pending acknowledgement;
+  position changes before initial/resumed jog dispatch; no queued resume after Stop.
+- Absolute machine-coordinate resume in the simulator without altering parser units.
+- All four XY diagonal quadrants in one coordinated command, per-axis distance,
+  path feed, inactive Z, all-zero/nonfinite/rounded-to-zero input rejection.
+- Repeated mixed-sign and negative diagonal pause/resume retains the original
+  machine-coordinate endpoints and feed, including deceleration drift.
+- Off-line positions inside the target bounding box and motion outside the
+  original segment invalidate resume; legal motor-step quantization is accepted
+  using the captured per-axis steps/mm. Inactive axes and stationary checks
+  retain tight reporting tolerances. Stop/write race protection covers vectors.
+
+TRANSPORT CHECKS: 21 passed during version 1.0 development
+The real serial transport is unchanged for this update. The earlier separate
+development checks covered fragmented input and CRLF, raw realtime
+bytes, simulator report units, G20 datum input, jog acknowledgement and cancel,
+homing completion acknowledgement, reset persistence, failure hooks,
+unsupported command rejection, invalid-port open, and repeated close.
+
+PACKAGED EXECUTABLE UI SMOKE TEST: 279 assertions passed in version 1.5.0
+The final self-contained EXE was run with --smoke-test using the simulator:
+connect; disabled controls; Laser Mode and G54 zero verification; set/clear
+datum; Milling Mode with no restore; visible rejected-command errors and
+mismatched-profile attention; Home preserving a nonzero datum; Work return to
+XYZ zero without changing the datum; a jog using the distance/feed controls;
+Pause; stationary paused state and control interlocks; Resume completing
+only the remaining distance; Stop discarding a paused target; motion-time
+control gating; STOP / RESET; reconnect; disconnect.
+The test uses actual WPF button event handlers, verifies controller snapshots,
+and writes default, disconnected, compact, maximized, inches, and paused rendered
+screenshots plus a console log. Layouts visually inspected against the user's
+supplied light interface reference. Bounds checks include every control, console
+input, Send Command and software stop; no control has an outer ScrollViewer.
+Layout checks cover idle, error and paused states at normal/default size,
+1366x728, 1093x582, 911x500, 800x500, and the actual maximized desktop.
+Actual maximized client: 1649x961 device-independent pixels, DPI scale 1.55.
+Other test sizes simulate available layout space, not OS DPI-setting changes.
+Only console history and opened drop-down lists use internal scrolling.
+
+TEXT CLIPPING REGRESSION
+Version 1.4.2 fixes the clipped descender in the Position & Jog heading. Its
+former fixed 30-DIP container now sizes automatically with a 36-DIP minimum
+and 2-DIP bottom text padding. The original 25-DIP font is unchanged. The status
+badge remains 30 DIP high and centered, so state text cannot resize the heading
+row. Rendered default, compact and maximized layouts were visually checked.
+
+Reproduced the reported clipping before applying the fix: the 15.96-DIP text
+line was clipped by a 12-DIP inner viewport because padding was applied twice.
+Removing padding from the outer template border leaves the normal TextBox
+padding in place and provides a 26-DIP text viewport in the same input height.
+Eighteen additional checks populate and focus the input with dollar signs,
+letters with descenders, and digits, then compare actual character rectangles
+against the inner scrolling viewport across default, maximized and compact
+layouts, including error and paused states. Sample text is restored after each
+check and never sent to a controller. The final populated screenshot was
+visually inspected. This change does not write any GRBL setting.
+
+ALL-ACTION LAYOUT REGRESSION
+The notification banner and its layout row have been removed entirely.
+Home, Work, mode switches, datum changes, readback, errors and jogging no longer
+insert anything between the mode buttons and the machine controls. Progress
+and error details remain in the console and existing status indicators.
+Read Controller is permanently located in the console toolbar. Header units
+and status controls use reserved widths so status text cannot move the buttons.
+The smoke test watches layout continuously across button actions, including
+asynchronous intermediate states, and compares control bounds at fixed window
+sizes. Intentional window resizing is tested separately. Rejected commands and
+unverified profiles must remain visible in the console and status indicators.
+
+DIAGONAL CONTROLS, INDEPENDENT Z INPUTS AND DISPLAY UNITS
+Actual arrow-button handlers send all four coordinated XY diagonal commands
+with the selected XY step applied to each active axis. Tests confirm endpoints
+and unchanged Z. Z buttons read their separate distance/feed fields.
+The Units button converts all nine coordinate values (machine, work and G54),
+labels and the four input fields using 25.4 mm per inch. Preset menus have
+separate native values for each unit system.
+Inch entries produce the expected explicit G21/mm wire commands for both XY
+and Z; Work retains its established coordinated XYZ move at the selected XY
+feed. Unit toggling issues no settings writes or motion. Custom input values
+survive repeated unit roundtrips without cumulative rounding. Tests also cover
+decimal-comma input, invalid-input rejection, and changing display units while
+paused without changing the saved target/feed. The raw console remains raw
+G-code, independent of the local display-unit selection. Visual review checks
+all eight XY arrows, separate XY/Z inputs and the header unit button.
+Metric XY step presets are 0.1, 1, 5, 10, 25 and 50 mm; metric Z step presets
+are 0.1, 0.25, 1, 5, 10 and 25 mm. Inch XY steps are 0.03125, 0.0625, 0.125,
+0.25, 0.5, 1 and 2 inches; inch Z steps use that list through 1 inch. Existing
+entered values retain their physical distance when changing display units.
+Both metric feed menus remain 100, 300, 500, 1000, 1500 and 2000 mm/min.
+Both inch feed menus offer 5, 12, 20, 40, 60 and 78 in/min. The smoke checks
+verify both sets of menus and their millimeter mapping, 1/32 inch conversion
+to 0.79375 mm, and custom input roundtrips. Inch XY and Z jogs send F508 and
+F127 for the 20 and 5 in/min presets respectively. Defaults are unchanged.
+Units now sits between the mode indicator and connection badge with compact
+spacing while preserving fixed button positions across status changes.
+
+WINDOW SHUTDOWN REGRESSION
+Reproduced the user's exact WPF "while a Window is closing" exception before
+the fix. Synchronously completed cleanup called Close() inside the original
+Closing event. Final Close is now deferred to the Dispatcher, and repeated
+close requests cannot bypass cleanup. Shutdown disables input and stops the
+UI timer; cleanup errors are logged instead of becoming an unhandled popup.
+The --shutdown-test harness exercises real WPF Closing/Closed events using
+only simulator transports: never connected, connected, already disconnected,
+repeated close while release is delayed, and disposal failure after release.
+It checks one Closed event, transport release and disposal before Closed,
+stopped timer, single cleanup, and logged failures. Dispatcher exceptions fail
+the test. The pre-fix run failed; the final executable passed all 31 shutdown
+assertions across the five scenarios, exited with code 0 and generated no
+error file. The full results are included in SHUTDOWN-TEST-RESULTS.txt.
+
+GITHUB UPDATES (VERSION 1.5.0)
+The fixed footer update button is enabled only while disconnected and not busy.
+The separate update window checks GitHub releases, displays versions/channels,
+and requires a Download and install click. It never inserts a main-window row.
+The update engine is independent of the controller and serial transport.
+
+Twenty isolated updater checks cover semantic version ordering, stable/dev
+selection, drafts, malformed release data, HTTP failures, allowed HTTPS
+redirects, response size bounds, exact length/SHA-256 validation and cancellation.
+Real hidden-helper tests use only disposable executable copies and child
+processes: readiness, atomic replacement/backup, parent-exit timeout, cancellation,
+changed payload rejection, and restoring the old executable on launch failure.
+No real application or CNC is replaced or controlled by these tests.
+
+Seven offline update-window scenarios passed 51 assertions using real WPF events with fake HTTP:
+up to date, newer release/channel change, check failure, close during check,
+close during download, preparation failure, and close during preparation.
+Seven mocked GitHub publication tests verify successful complete publication,
+checksum failure, upload failure, API digest mismatch, superseded source commits,
+source changes during upload, and refusal to publish a pull request.
+
+The Windows GitHub workflow runs all suites before exposing a release. Each
+dev release uses a unique run/attempt version; the publication job validates
+the tested commit, branch HEAD, and uploaded GitHub asset digests. The app only
+downloads the fixed repository's MillBeam.exe asset. No credentials are built
+into the app. Per-build logs and screenshots are stored as Actions artifacts.
+
+BRANDING AND WINDOWS ICONS
+Executable name, product metadata and window title use MillBeam. The cropped
+transparent wordmark is embedded in the header. Disconnected mode status is
+collapsed, leaving one connection badge at the far right. Connected mode and
+verification status remain visible alongside it. The app sets its own stable
+Windows taskbar identity (MillBeam.Control).
+The ICO contains 32-bit 16, 20, 24, 32, 40, 48, 64, 128 and 256 pixel frames.
+It is embedded in the executable and loaded as the WPF Window.Icon. Native
+WM_GETICON checks confirm Windows receives both large and small window icons.
+
+LIMITATIONS
+Development tests did not open a physical serial port or move the user's CNC. Actual hardware
+communication, physical stopping response, homing configuration, acceleration
+suitability, Work return clearance, and LightBurn serial handoff have not been
+verified on the user's machine. The Work button performs coordinated XYZ
+motion, without an automatic safe-height retract. The software stop is not a
+physical emergency stop.
+
+REPRODUCE
+With .NET 8 SDK on Windows, from the source folder:
+  dotnet run --project GenmitsuControl.Tests -c Release
+  dotnet run --project GenmitsuControl.UpdateTests -c Release
+  node --test scripts/publish-release.test.cjs
+Run the portable executable against its simulator:
+  MillBeam.exe --smoke-test C:\path\to\test-results
+  MillBeam.exe --shutdown-test C:\path\to\shutdown-results
+  MillBeam.exe --update-ui-test C:\path\to\update-window-results
